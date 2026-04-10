@@ -1,0 +1,52 @@
+# .gitignore for tacotron2-wavernn project
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Parquet data files
+*.parquet
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Shell history
+.python_history
+
+# VS Code settings
+.vscode/
+
+# Logs
+*.log
+
+# Ignore model checkpoints and outputs
+checkpoints/
+outputs/
+
+# Ignore any temp or cache files
+*.tmp
+*.cache
+
+# Ignore test outputs
+*.out
+*.test
+
+# Ignore large data files
+*.h5
+*.pth
+*.pt
+*.ckpt
+
+clartts/
