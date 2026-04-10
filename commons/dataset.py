@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torchaudio
 from torch.utils.data import Dataset
 import librosa
-from tokenizer import Tokenizer
+from tacotron2.tokenizer import Tokenizer
 
 import numpy as np
 
@@ -155,7 +155,12 @@ class TTSDataset(Dataset):
                  min_db=-100, 
                  max_scaled_abs=4):
         
-        self.metadata = pd.read_csv(path_to_metadata)
+        # Support both CSV and Parquet for metadata
+        self.is_parquet = path_to_metadata.endswith('.parquet')
+        if self.is_parquet:
+            self.metadata = pd.read_parquet(path_to_metadata)
+        else:
+            self.metadata = pd.read_csv(path_to_metadata)
         self.sample_rate = sample_rate
         self.n_fft = n_fft
         self.win_size = window_size
@@ -168,7 +173,10 @@ class TTSDataset(Dataset):
         self.min_db = min_db
         self.max_scaled_abs = max_scaled_abs
 
-        self.transcript_lengths = [len(Tokenizer().encode(t)) for t in self.metadata["normalized_transcript"]]
+        if self.is_parquet:
+            self.transcript_lengths = [len(Tokenizer().encode(t)) for t in self.metadata["text"]]
+        else:
+            self.transcript_lengths = [len(Tokenizer().encode(t)) for t in self.metadata["normalized_transcript"]]
 
         self.audio_proc = AudioMelConversions(num_mels=self.num_mels, 
                                               sampling_rate=self.sample_rate, 
@@ -186,16 +194,25 @@ class TTSDataset(Dataset):
         return len(self.metadata)
     
     def __getitem__(self, idx):
-
         sample = self.metadata.iloc[idx]
-        
-        path_to_audio = sample["file_path"]
-        transcript = sample["normalized_transcript"]
-
-        audio = load_wav(path_to_audio, sr=self.sample_rate)
+        if self.is_parquet:
+            transcript = sample["text"]
+            # Load audio directly from the 'audio' column (expects a numpy array or list)
+            audio = sample["audio"]
+            if isinstance(audio, (np.ndarray, list)):
+                audio = torch.tensor(audio, dtype=torch.float32)
+            else:
+                # If stored as bytes, decode to numpy array (assume float32 PCM)
+                audio = torch.from_numpy(np.frombuffer(audio, dtype=np.float32))
+            # Optionally resample if needed
+            if hasattr(sample, "sr") and sample["sr"] != self.sample_rate:
+                audio = torchaudio.functional.resample(audio, orig_freq=sample["sr"], new_freq=self.sample_rate)
+        else:
+            transcript = sample["normalized_transcript"]
+            path_to_audio = sample["file_path"]
+            audio = load_wav(path_to_audio, sr=self.sample_rate)
 
         mel = self.audio_proc.audio2mel(audio, do_norm=True)
-
         return transcript, mel.squeeze(0)
 
 def TTSCollator():

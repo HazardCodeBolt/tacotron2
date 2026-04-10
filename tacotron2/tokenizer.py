@@ -9,7 +9,8 @@ class Tokenizer:
         self.unk_token = "<UNK>"
 
         self.chars = [self.pad_token, self.eos_token, self.unk_token] + \
-            list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!\'\"(),-.:;? ')
+            list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!\'\"(),-.:;? ') + \
+            list('ابتثجحخدذرزسشصضطظعغفقكلمنهويءأةئىؤإأآ') + list('ًٌٍَُِّْٰ')
             
         
         self.char2id = {char: i for i, char in enumerate(self.chars)}

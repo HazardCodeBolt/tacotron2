@@ -2,41 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from dataclasses import dataclass
+from commons.hyperparams import Tacotron2Config, DATASET_PATH
+from commons.dataset import TTSDataset, TTSCollator
 
-@dataclass
-class Tacotron2Config:
-
-    ### Mel Input Features ###
-    num_mels: int = 80 
-
-    ### Character Embeddings ###
-    character_embed_dim: int = 512
-    num_chars: int = 67
-    pad_token_id: int = 0
-
-    ### Encoder config ###
-    encoder_kernel_size: int = 5
-    encoder_n_convolutions: int = 3
-    encoder_embed_dim: int = 512
-    encoder_dropout_p: float = 0.5
-    
-    ### Decoder Config ###
-    decoder_embed_dim: int = 1024
-    decoder_prenet_dim: int = 256
-    decoder_prenet_depth: int = 2
-    decoder_prenet_dropout_p: float = 0.5
-    decoder_postnet_num_convs: int = 5
-    decoder_postnet_n_filters: int = 512
-    decoder_postnet_kernel_size: int = 5
-    decoder_postnet_dropout_p: float = 0.5
-    decoder_dropout_p: float = 0.1
-
-    ### Attention Config ###
-    attention_dim: int = 128
-    attention_location_n_filters: int = 32
-    attention_location_kernel_size: int = 31
-    attention_dropout_p: float = 0.1
 
 class LinearNorm(nn.Module):
     """
@@ -639,9 +607,7 @@ class Tacotron2(nn.Module):
         
 if __name__ == "__main__":
 
-    from dataset import TTSDataset, TTSCollator
-
-    dataset = TTSDataset("data/test_metadata.csv")
+    dataset = TTSDataset(DATASET_PATH)
     loader = torch.utils.data.DataLoader(dataset, batch_size=4, collate_fn=TTSCollator())
     for text_padded, input_lengths, mel_padded, gate_padded, encoder_mask, decoder_mask in loader:
 

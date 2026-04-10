@@ -10,7 +10,7 @@ from accelerate import Accelerator
 import matplotlib.pyplot as plt
 
 from model import Tacotron2, Tacotron2Config
-from dataset import TTSDataset, TTSCollator, BatchSampler, denormalize
+from commons.dataset import TTSDataset, TTSCollator, BatchSampler, denormalize
 from tokenizer import Tokenizer
 
 def parse_args():
