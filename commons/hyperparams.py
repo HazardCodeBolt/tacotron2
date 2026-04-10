@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-DATASET_PATH = '../clartts/combined.parquet'  
+DATASET_PATH = './clartts/combined.parquet'  
 
 # Shared audio/mel spectrogram parameters
 SAMPLE_RATE = 22050
@@ -34,7 +34,7 @@ class Tacotron2Config:
 	### Mel Input Features ###
 	num_mels: int = 80 
 
-	num_chars: int = 67
+	num_chars: int = 113 
 
 
 	### Character Embeddings ###

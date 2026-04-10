@@ -607,7 +607,7 @@ class Tacotron2(nn.Module):
         
 if __name__ == "__main__":
 
-    dataset = TTSDataset(DATASET_PATH)
+    dataset = TTSDataset('.' + DATASET_PATH)
     loader = torch.utils.data.DataLoader(dataset, batch_size=4, collate_fn=TTSCollator())
     for text_padded, input_lengths, mel_padded, gate_padded, encoder_mask, decoder_mask in loader:
 
