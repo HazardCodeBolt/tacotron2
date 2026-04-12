@@ -11,7 +11,8 @@ from torch.utils.data import DataLoader
 
 # Load config and dataset
 config = Tacotron2Config()
-dataset = TTSDataset(DATASET_PATH)
+_repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+dataset = TTSDataset(os.path.normpath(os.path.join(_repo_root, DATASET_PATH)))
 collate_fn = TTSCollator()
 loader = DataLoader(dataset, batch_size=2, collate_fn=collate_fn)
 

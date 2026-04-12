@@ -1,0 +1,21 @@
+# PyTorch: for a specific CUDA build, install from https://pytorch.org/ then run pip install -r requirements.txt
+torch>=2.1.0
+torchaudio>=2.1.0
+
+numpy>=1.24.0
+pandas>=2.0.0
+pyarrow>=14.0.0
+
+# Linux: sudo apt install libsndfile1  (helps torchaudio/soundfile read many audio formats)
+librosa>=0.10.0
+soundfile>=0.12.0
+scikit-learn>=1.3.0
+
+matplotlib>=3.7.0
+
+transformers>=4.36.0
+accelerate>=0.25.0
+huggingface_hub>=0.20.0
+wandb>=0.16.0
+
+ipykernel>=6.0.0

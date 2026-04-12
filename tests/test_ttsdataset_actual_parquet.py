@@ -6,7 +6,10 @@ from commons.dataset import TTSDataset
 
 
 def main():
-    parquet_path = "clartts/test-00000-of-00001.parquet"
+    _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    parquet_path = os.path.normpath(
+        os.path.join(_repo_root, "clartts", "test-00000-of-00001.parquet")
+    )
     dataset = TTSDataset(parquet_path)
     print(f"Loaded {len(dataset)} samples from {parquet_path}")
     transcript, mel = dataset[0]

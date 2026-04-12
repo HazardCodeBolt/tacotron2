@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -607,7 +608,8 @@ class Tacotron2(nn.Module):
         
 if __name__ == "__main__":
 
-    dataset = TTSDataset('.' + DATASET_PATH)
+    _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    dataset = TTSDataset(os.path.normpath(os.path.join(_repo_root, DATASET_PATH)))
     loader = torch.utils.data.DataLoader(dataset, batch_size=4, collate_fn=TTSCollator())
     for text_padded, input_lengths, mel_padded, gate_padded, encoder_mask, decoder_mask in loader:
 

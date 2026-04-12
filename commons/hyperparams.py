@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
-DATASET_PATH = './clartts/combined.parquet'  
+# Combined manifest path, relative to repository root (<repo>/clartts/)
+DATASET_PATH = 'clartts/combined.parquet'
 
 # Shared audio/mel spectrogram parameters
 SAMPLE_RATE = 22050
@@ -31,6 +32,7 @@ class Tacotron2Config:
 	seed: int = 42
 	checkpoint_dir: str = './checkpoints_taco2/'
 	eps : float = 1e-6
+	num_workers: int = 0  # DataLoader workers; safe default on Windows; increase on Linux if desired
 	### Mel Input Features ###
 	num_mels: int = 80 
 

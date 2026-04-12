@@ -38,6 +38,8 @@ outputs/
 # Ignore any temp or cache files
 *.tmp
 *.cache
+.cache/
+.env
 
 # Ignore test outputs
 *.out
