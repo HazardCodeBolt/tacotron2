@@ -52,3 +52,6 @@ outputs/
 *.ckpt
 
 clartts/
+
+tacotron2-wavernn/
+tacotron2-wavernn.zip
