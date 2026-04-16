@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from commons.hyperparams import Tacotron2Config, DATASET_PATH
 from commons.dataset import TTSDataset, TTSCollator
 
-
+#w
 class LinearNorm(nn.Module):
     """
     Standard Linear layer with different intialization strategies
