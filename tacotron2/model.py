@@ -531,7 +531,13 @@ class Decoder(nn.Module):
         return mel_outs, mel_residual, stop_tokens, attention_weights
     
     @torch.inference_mode()
-    def inference(self, encoder_output, max_decode_steps=1000):
+    def inference(
+        self,
+        encoder_output,
+        max_decode_steps=1000,
+        stop_threshold=0.1,
+        min_decode_steps=10,
+    ):
 
         start_feature_vector = self._bos_frame(B=1).squeeze(0)
 
@@ -553,7 +559,8 @@ class Decoder(nn.Module):
             stop_outs.append(stop_out)
             attention_weights.append(attention_weight)
 
-            if torch.sigmoid(stop_out) > 0.5:
+            stop_p = float(torch.sigmoid(stop_out).item())
+            if len(mel_outs) >= min_decode_steps and stop_p > stop_threshold:
                 break
             elif len(mel_outs) >= max_decode_steps:
                 print("Reached Max Decoder Steps")
@@ -590,7 +597,13 @@ class Tacotron2(nn.Module):
         return mel_outs, mel_postnet_out, stop_tokens, attention_weights 
     
     @torch.inference_mode()
-    def inference(self, text, max_decode_steps=1000):
+    def inference(
+        self,
+        text,
+        max_decode_steps=1000,
+        stop_threshold=0.1,
+        min_decode_steps=10,
+    ):
         
         if text.ndim == 1:
             text = text.unsqueeze(0)
@@ -598,7 +611,10 @@ class Tacotron2(nn.Module):
         assert text.shape[0] == 1, "Inference only written for Batch Size of 1"
         encoder_outputs = self.encoder(text)
         mel_outs, mel_residual, stop_outs, attention_weights = self.decoder.inference(
-            encoder_outputs, max_decode_steps=max_decode_steps
+            encoder_outputs,
+            max_decode_steps=max_decode_steps,
+            stop_threshold=stop_threshold,
+            min_decode_steps=min_decode_steps,
         )
 
         mel_postnet_out = mel_outs + mel_residual
