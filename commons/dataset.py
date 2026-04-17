@@ -114,20 +114,30 @@ class AudioMelConversions:
 
         mel = db_to_amp(mel)
 
-        spectrogram = torch.matmul(self.mel2spec.to(mel.device), mel).cpu().numpy()
+        device = mel.device
+        dtype = mel.dtype
+        spectrogram = torch.matmul(self.mel2spec.to(device=device, dtype=dtype), mel)
 
-        audio = librosa.griffinlim(S=spectrogram, 
-                                   n_iter=griffin_lim_iters, 
-                                   hop_length=self.hop_size, 
-                                   win_length=self.window_size, 
-                                   n_fft=self.n_fft,
-                                   window="hann")
+        window = torch.hann_window(self.window_size, device=device, dtype=dtype)
+        # Magnitude spectrogram + Griffin–Lim via torchaudio (aligned with torch.stft in audio2mel).
+        audio = torchaudio.functional.griffinlim(
+            spectrogram,
+            window,
+            self.n_fft,
+            self.hop_size,
+            self.window_size,
+            power=1.0,
+            n_iter=griffin_lim_iters,
+            momentum=0.99,
+            length=None,
+            rand_init=True,
+        )
 
-        audio *= 32767 / max(0.01, np.max(np.abs(audio)))
-        
-        audio = audio.astype(np.int16)
+        audio = audio.reshape(-1).float()
+        peak = torch.amax(torch.abs(audio)).clamp(min=0.01)
+        audio_i16 = (audio * (32767.0 / peak)).round().to(torch.int16).cpu().numpy()
 
-        return audio
+        return audio_i16
 
 def build_padding_mask(lengths):
 
