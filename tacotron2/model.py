@@ -401,41 +401,17 @@ class Decoder(nn.Module):
         self.c = [torch.zeros(B, self.config.decoder_embed_dim, device=device) for _ in range(2)]
 
         ### Initialize Cumulative Attention ###
-        self.cumulative_attn_weight = torch.zeros(B,S, device=device)
-        self.attn_weight = torch.zeros(B,S, device=device)
+        self.cumulative_attn_weight = torch.zeros(B, S, device=device)
+        self.attn_weight = torch.zeros(B, S, device=device)
         self.attn_context = torch.zeros(B, self.config.encoder_embed_dim, device=device)
 
         ### Store Encoder Outputs ##
         self.encoder_outputs = encoder_outputs
         self.encoder_mask = encoder_mask
 
-    def _bos_frame(self, B):
-        start_frame_zeros = torch.zeros(B, 1, self.config.num_mels)
-        return start_frame_zeros
-
-    # def decode(self, mel_step):
-
-    #     rnn_input = torch.cat([mel_step, self.attn_context], dim=-1)
-
-    #     self.h[0], self.c[0] = self.rnn[0](rnn_input, (self.h[0], self.c[0]))
-    #     self.h[1], self.c[1] = self.rnn[1](self.h[0], (self.h[1], self.c[1]))
-    #     rnn_output = self.h[1]
-
-    #     attention_context, attention_weights = self.attention(
-    #         rnn_output, 
-    #         self.encoder_outputs, 
-    #         self.cumulative_attn_weight, 
-    #         mask=self.encoder_mask
-    #     )
-
-    #     self.attn_context = attention_context
-    #     self.cumulative_attn_weight = self.cumulative_attn_weight + attention_weights
-
-    #     next_pred_input = torch.cat((rnn_output, self.attn_context), dim=1)
-    #     mel_out = self.mel_proj(next_pred_input)
-    #     stop_out = self.stop_proj(next_pred_input)
-
-    #     return mel_out, stop_out, attention_weights
+    def _bos_frame(self, B, device=None):
+        ### FIX: accept device so the start frame is created on the correct device ###
+        return torch.zeros(B, 1, self.config.num_mels, device=device)
 
     def decode(self, mel_step):
 
@@ -487,8 +463,8 @@ class Decoder(nn.Module):
                 mels, 
                 decoder_mask):
         
-        ### When Decoding Start with Zero Feature Vector ###
-        start_feature_vector = self._bos_frame(mels.shape[0]).to(encoder_outputs.device)
+        ### FIX: pass device to _bos_frame ###
+        start_feature_vector = self._bos_frame(mels.shape[0], device=encoder_outputs.device)
         mels_w_start = torch.cat([start_feature_vector, mels], dim=1)
         
         self._init_decoder(encoder_outputs, encoder_mask)
@@ -539,7 +515,10 @@ class Decoder(nn.Module):
         min_decode_steps=10,
     ):
 
-        start_feature_vector = self._bos_frame(B=1).squeeze(0)
+        device = encoder_output.device
+
+        ### FIX: pass device to _bos_frame so it lands on CUDA when model is on GPU ###
+        start_feature_vector = self._bos_frame(B=1, device=device).squeeze(0)
 
         self._init_decoder(encoder_output, encoder_mask=None)
 
@@ -632,6 +611,5 @@ if __name__ == "__main__":
         config = Tacotron2Config()
         model = Tacotron2(config)
         print(model)
-        # decoder(encoded_outputs, )
 
         break
