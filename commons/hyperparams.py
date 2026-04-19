@@ -108,7 +108,7 @@ class WaveRNNConfig:
 	n_output: int = 128
 	segment_mel_frames: int = 64
 	checkpoint_dir: str = './wavernn/checkpoints/'
-	checkpoint_name: str = None
+	checkpoint_name: str = 'wavernn_last.pt'
 	# Per-epoch loss plots + sample WAVs (relative to repo cwd)
 	monitor_dir: str = './wavernn/training_monitor/'
 	seed: int = 42
