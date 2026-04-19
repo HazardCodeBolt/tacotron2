@@ -35,6 +35,9 @@ Thumbs.db
 checkpoints/
 outputs/
 
+# WaveRNN training notebook outputs (loss plot + epoch WAVs)
+wavernn/training_monitor/
+
 # Ignore any temp or cache files
 *.tmp
 *.cache
@@ -55,3 +58,5 @@ clartts/
 
 tacotron2-wavernn/
 tacotron2-wavernn.zip
+
+epoch_0096.zip

@@ -1,7 +1,20 @@
 from dataclasses import dataclass
+import os
 
 # Combined manifest path, relative to repository root (<repo>/clartts/)
 DATASET_PATH = 'clartts/combined.parquet'
+
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# CLArTTS splits under <repo>/clartts/
+WAVERNN_TRAIN_PATH = os.path.normpath(
+    os.path.join(_REPO_ROOT, 'clartts', 'clartts_train.parquet')
+)
+WAVERNN_VAL_PATH = os.path.normpath(
+    os.path.join(_REPO_ROOT, 'clartts', 'clartts_val.parquet')
+)
+WAVERNN_TEST_PATH = os.path.normpath(
+    os.path.join(_REPO_ROOT, 'clartts', 'clartts_test.parquet')
+)
 
 # Shared audio/mel spectrogram parameters
 SAMPLE_RATE = 22050
@@ -95,7 +108,9 @@ class WaveRNNConfig:
 	n_output: int = 128
 	segment_mel_frames: int = 64
 	checkpoint_dir: str = './wavernn/checkpoints/'
-	checkpoint_name: str = 'wavernn_last.pt'
+	checkpoint_name: str = None
+	# Per-epoch loss plots + sample WAVs (relative to repo cwd)
+	monitor_dir: str = './wavernn/training_monitor/'
 	seed: int = 42
 	resume_from: str = None
 

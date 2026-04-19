@@ -1,7 +1,10 @@
+import random
+
 import pandas as pd
 import torch
 import torch.nn.functional as F
 import torchaudio
+import torchaudio.functional as AF
 from torch.utils.data import Dataset
 import librosa
 from tacotron2.tokenizer import Tokenizer
@@ -293,3 +296,101 @@ class BatchSampler:
 
     def __len__(self):
         return len(self.random_batches)
+
+
+class WaveRNNDataset(Dataset):
+    """Random mel/wave segments for WaveRNN training, aligned with :class:`TTSDataset` preprocessing.
+
+    Uses the same parquet/CSV loading and :class:`AudioMelConversions` settings as Tacotron2 so
+    mel statistics match. Expects a config object with the same fields as ``WaveRNNConfig`` in
+    ``commons.hyperparams`` (``sample_rate``, ``n_mels``, ``n_fft``, ``hop_length``, ``window_size``,
+    ``fmin``, ``fmax``, ``min_db``, ``max_scaled_abs``, ``segment_mel_frames``, ``kernel_size``,
+    ``n_classes``).
+
+    Each item is ``(mel_seg, waveform_in, target)`` where ``mel_seg`` has
+    ``segment_mel_frames + kernel_size - 1`` frames (e.g. ``segment_mel_frames + 4`` when
+    ``kernel_size == 5``), ``waveform_in`` is float audio ``[-1, 1]`` of length
+    ``segment_mel_frames * hop_length``, and ``target`` is mu-law indices for cross-entropy.
+    """
+
+    def __init__(self, path_to_metadata, config):
+        self.is_parquet = path_to_metadata.endswith('.parquet')
+        if self.is_parquet:
+            self.metadata = pd.read_parquet(path_to_metadata)
+        else:
+            self.metadata = pd.read_csv(path_to_metadata)
+
+        self.config = config
+        self.sample_rate = config.sample_rate
+        self.n_fft = config.n_fft
+        self.win_size = config.window_size
+        self.hop_size = config.hop_length
+        self.fmin = config.fmin
+        self.fmax = config.fmax
+        self.num_mels = config.n_mels
+        self.min_db = config.min_db
+        self.max_scaled_abs = config.max_scaled_abs
+
+        self.kernel_size = config.kernel_size
+        self.segment_mel_frames = config.segment_mel_frames
+        self.n_classes = config.n_classes
+
+        self.t_mel = self.segment_mel_frames + self.kernel_size - 1
+        self.n_audio = self.segment_mel_frames * self.hop_size
+
+        self.audio_proc = AudioMelConversions(
+            num_mels=self.num_mels,
+            sampling_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            window_size=self.win_size,
+            hop_size=self.hop_size,
+            fmin=self.fmin,
+            fmax=self.fmax,
+            center=False,
+            min_db=self.min_db,
+            max_scaled_abs=self.max_scaled_abs,
+        )
+
+    def __len__(self):
+        return len(self.metadata)
+
+    def _row_audio(self, sample):
+        if self.is_parquet:
+            audio = sample['audio']
+            if isinstance(audio, (np.ndarray, list)):
+                audio = torch.tensor(audio, dtype=torch.float32)
+            else:
+                audio = torch.from_numpy(np.frombuffer(audio, dtype=np.float32))
+            if 'sr' in sample.index and sample['sr'] != self.sample_rate:
+                audio = torchaudio.functional.resample(
+                    audio, orig_freq=int(sample['sr']), new_freq=self.sample_rate
+                )
+        else:
+            path_to_audio = sample['file_path']
+            audio = load_wav(path_to_audio, sr=self.sample_rate)
+        return audio.reshape(-1)
+
+    def __getitem__(self, idx):
+        sample = self.metadata.iloc[idx]
+        audio = self._row_audio(sample)
+        mel = self.audio_proc.audio2mel(audio, do_norm=True)
+
+        t = mel.shape[1]
+        if t < self.t_mel:
+            mel = F.pad(mel, (0, self.t_mel - t))
+            max_start = 0
+        else:
+            max_start = t - self.t_mel
+
+        start = random.randint(0, max_start)
+        mel_seg = mel[:, start : start + self.t_mel].contiguous()
+
+        a0 = start * self.hop_size
+        wave_seg = audio[a0 : a0 + self.n_audio]
+        if wave_seg.numel() < self.n_audio:
+            wave_seg = F.pad(wave_seg, (0, self.n_audio - wave_seg.numel()))
+
+        wave_seg = torch.clamp(wave_seg, -1.0, 1.0)
+        target = AF.mu_law_encoding(wave_seg, quantization_channels=self.n_classes)
+
+        return mel_seg, wave_seg, target
