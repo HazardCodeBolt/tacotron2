@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
+import torchaudio.functional as audio_F
 from torch import nn, Tensor
 
 __all__ = [
@@ -401,9 +402,9 @@ class WaveRNN(nn.Module):
 
             posterior = F.softmax(logits, dim=1)
 
-            x = torch.multinomial(posterior, 1).float()
-            # Transform label [0, 2 ** n_bits - 1] to waveform [-1, 1]
-            x = 2 * x / (2**self.n_bits - 1.0) - 1.0
+            idx = torch.multinomial(posterior, 1).squeeze(-1)
+            # Targets are mu-law indices (see torchaudio.functional.mu_law_encoding).
+            x = audio_F.mu_law_decoding(idx.float(), self.n_classes).unsqueeze(-1)
 
             output.append(x)
 

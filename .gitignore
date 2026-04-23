@@ -60,3 +60,6 @@ tacotron2-wavernn/
 tacotron2-wavernn.zip
 
 epoch_0096.zip
+
+checkpoints.zip
+loss_curve_wavernn.png

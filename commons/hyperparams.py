@@ -85,7 +85,7 @@ class WaveRNNConfig:
 	batch_size: int = 8
 	learning_rate: float = 1e-4
 	weight_decay: float = 1e-6
-	epochs: int = 20
+	epochs: int = 25
 	grad_clip: float = 4.0
 	num_workers: int = 0
 	eval_batches: int = 8
@@ -97,7 +97,7 @@ class WaveRNNConfig:
 	fmin: int = FMIN
 	fmax: int = FMAX
 	min_db: float = MIN_DB
-	max_scaled_abs: float = 1.0
+	max_scaled_abs: float = MAX_SCALED_ABS
 	upsample_scales: tuple = (4, 4, 16)
 	n_classes: int = 256
 	n_res_block: int = 10
