@@ -1,4 +1,6 @@
 import random
+import os
+import glob
 
 import pandas as pd
 import torch
@@ -296,6 +298,135 @@ class BatchSampler:
 
     def __len__(self):
         return len(self.random_batches)
+
+
+class OmaniTTSDataset(TTSDataset):
+    """Dataset loader for the annotated_dataset_omani corpus.
+
+    Reads one or more XLSX annotation files (columns: ``audio_file``,
+    ``transcription``) where ``audio_file`` holds a relative path such as
+    ``cleaned_audio/B1.flac``.  All paths are resolved relative to
+    ``dataset_root`` (the ``annotated_dataset_omani`` folder).
+
+    The interface is identical to :class:`TTSDataset`: ``__getitem__`` returns
+    ``(transcript_str, mel_tensor)`` so the same :func:`TTSCollator` and
+    training loop work without modification.
+
+    Args:
+        dataset_root: Path to the ``annotated_dataset_omani`` directory.
+        xlsx_files:   List of XLSX filenames inside ``dataset_root`` to load.
+                      Defaults to all ``annotated_filtered_*.xlsx`` files found
+                      in ``dataset_root``.
+        speakers:     Optional list of speaker letters (e.g. ``['B', 'C']``) to
+                      filter by.  When ``None`` all speakers are included.
+        **kwargs:     Forwarded to :class:`TTSDataset` (``sample_rate``,
+                      ``n_fft``, ``window_size``, ``hop_size``, ``fmin``,
+                      ``fmax``, ``num_mels``, ``center``, ``normalized``,
+                      ``min_db``, ``max_scaled_abs``).
+    """
+
+    def __init__(self,
+                 dataset_root,
+                 xlsx_files=None,
+                 speakers=None,
+                 sample_rate=22050,
+                 n_fft=1024,
+                 window_size=1024,
+                 hop_size=256,
+                 fmin=0,
+                 fmax=8000,
+                 num_mels=80,
+                 center=False,
+                 normalized=False,
+                 min_db=-100,
+                 max_scaled_abs=4):
+
+        self.dataset_root = dataset_root
+
+        # Normalise speakers arg: "B" -> ["B"],  ["B","C"] -> ["B","C"]
+        if isinstance(speakers, str):
+            speakers = [speakers]
+        if speakers is not None:
+            speakers = [s.upper() for s in speakers]
+
+        # Discover XLSX files
+        if xlsx_files is None:
+            pattern = os.path.join(dataset_root, "annotated_filtered_*.xlsx")
+            xlsx_files = sorted(glob.glob(pattern))
+            if not xlsx_files:
+                raise FileNotFoundError(
+                    f"No annotated_filtered_*.xlsx files found in {dataset_root}"
+                )
+        else:
+            xlsx_files = [
+                os.path.join(dataset_root, f) if not os.path.isabs(f) else f
+                for f in xlsx_files
+            ]
+
+        frames = []
+        for path in xlsx_files:
+            df = pd.read_excel(path)
+            if not {"audio_file", "transcription"}.issubset(df.columns):
+                raise ValueError(
+                    f"{path} must contain 'audio_file' and 'transcription' columns"
+                )
+            df = df[["audio_file", "transcription"]].dropna()
+            df["speaker"] = df["audio_file"].apply(
+                lambda p: os.path.splitext(os.path.basename(p))[0][0].upper()
+            )
+            frames.append(df)
+
+        metadata = pd.concat(frames, ignore_index=True)
+        self.available_speakers = sorted(metadata["speaker"].unique())
+
+        if speakers is not None:
+            unknown = set(speakers) - set(self.available_speakers)
+            if unknown:
+                raise ValueError(
+                    f"Unknown speaker(s): {sorted(unknown)}. "
+                    f"Available speakers: {self.available_speakers}"
+                )
+            metadata = metadata[metadata["speaker"].isin(speakers)].reset_index(drop=True)
+            if metadata.empty:
+                raise ValueError(f"No samples found for speaker(s): {speakers}")
+
+        self.speakers = speakers if speakers is not None else self.available_speakers
+
+        # Resolve audio paths to absolute paths
+        metadata["file_path"] = metadata["audio_file"].apply(
+            lambda p: os.path.join(dataset_root, p)
+        )
+        metadata["normalized_transcript"] = metadata["transcription"]
+
+        # Write a temporary CSV so the parent __init__ can load it normally
+        import tempfile
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        )
+        metadata[["file_path", "normalized_transcript"]].to_csv(tmp.name, index=False)
+        tmp.close()
+        self._tmp_csv = tmp.name
+
+        super().__init__(
+            path_to_metadata=tmp.name,
+            sample_rate=sample_rate,
+            n_fft=n_fft,
+            window_size=window_size,
+            hop_size=hop_size,
+            fmin=fmin,
+            fmax=fmax,
+            num_mels=num_mels,
+            center=center,
+            normalized=normalized,
+            min_db=min_db,
+            max_scaled_abs=max_scaled_abs,
+        )
+
+    def __del__(self):
+        try:
+            os.remove(self._tmp_csv)
+        except Exception:
+            pass
 
 
 class WaveRNNDataset(Dataset):
