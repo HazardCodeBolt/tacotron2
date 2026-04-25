@@ -19,3 +19,4 @@ huggingface_hub>=0.20.0
 wandb>=0.16.0
 
 ipykernel>=6.0.0
+gdown>=5.1.0
