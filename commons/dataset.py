@@ -422,6 +422,19 @@ class OmaniTTSDataset(TTSDataset):
             max_scaled_abs=max_scaled_abs,
         )
 
+    def __getitem__(self, idx):
+        sample = self.metadata.iloc[idx]
+        transcript = sample["normalized_transcript"]
+        audio = load_wav(sample["file_path"], sr=self.sample_rate)
+
+        # Pad 500 ms of silence at both ends
+        silence_samples = int(0.1 * self.sample_rate)
+        silence = torch.zeros(silence_samples, dtype=audio.dtype)
+        audio = torch.cat([silence, audio, silence])
+
+        mel = self.audio_proc.audio2mel(audio, do_norm=True)
+        return transcript, mel.squeeze(0)
+
     def __del__(self):
         try:
             os.remove(self._tmp_csv)
