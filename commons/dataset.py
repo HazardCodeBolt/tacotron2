@@ -442,6 +442,121 @@ class OmaniTTSDataset(TTSDataset):
             pass
 
 
+class NewOmaniTTSDataset(Dataset):
+    """Dataset loader for the dataset_new_omani corpus.
+
+    Reads ``transcriptions.xlsx`` (columns: ``File Name``, ``Text``) and loads
+    audio from ``clean_flac/clean_flac/``.  Speaker IDs are the numeric prefix
+    of each filename (e.g. ``111``, ``49``, ``53``, ``55``, ``45``, ``51``, ``47``).
+
+    Args:
+        dataset_root: Path to the ``dataset_new_omani`` directory.
+        speakers:     Optional speaker ID string or list of strings (e.g. ``"111"``
+                      or ``["49", "53"]``).  When ``None`` all speakers are included.
+        sample_rate, n_fft, window_size, hop_size, fmin, fmax, num_mels,
+        center, min_db, max_scaled_abs: Audio processing parameters.
+    """
+
+    AUDIO_SUBDIR = os.path.join("clean_flac", "clean_flac")
+
+    def __init__(self,
+                 dataset_root,
+                 speakers=None,
+                 sample_rate=22050,
+                 n_fft=1024,
+                 window_size=1024,
+                 hop_size=256,
+                 fmin=0,
+                 fmax=8000,
+                 num_mels=80,
+                 center=False,
+                 min_db=-100,
+                 max_scaled_abs=4):
+
+        self.dataset_root = dataset_root
+        self.sample_rate = sample_rate
+        self.n_fft = n_fft
+        self.win_size = window_size
+        self.hop_size = hop_size
+        self.fmin = fmin
+        self.fmax = fmax
+        self.num_mels = num_mels
+        self.center = center
+        self.min_db = min_db
+        self.max_scaled_abs = max_scaled_abs
+
+        xlsx_path = os.path.join(dataset_root, "transcriptions.xlsx")
+        if not os.path.isfile(xlsx_path):
+            raise FileNotFoundError(f"transcriptions.xlsx not found in {dataset_root}")
+
+        df = pd.read_excel(xlsx_path)
+        if not {"File Name", "Text"}.issubset(df.columns):
+            raise ValueError(f"{xlsx_path} must contain 'File Name' and 'Text' columns")
+
+        df = df[["File Name", "Text"]].dropna()
+        df["speaker"] = df["File Name"].apply(lambda n: n.split("_")[0])
+
+        self.available_speakers = sorted(df["speaker"].unique())
+
+        if speakers is not None:
+            if isinstance(speakers, str):
+                speakers = [speakers]
+            speakers = [str(s) for s in speakers]
+            unknown = set(speakers) - set(self.available_speakers)
+            if unknown:
+                raise ValueError(
+                    f"Unknown speaker(s): {sorted(unknown)}. "
+                    f"Available: {self.available_speakers}"
+                )
+            df = df[df["speaker"].isin(speakers)].reset_index(drop=True)
+            if df.empty:
+                raise ValueError(f"No samples found for speaker(s): {speakers}")
+
+        self.speakers = speakers if speakers is not None else self.available_speakers
+
+        audio_dir = os.path.join(dataset_root, self.AUDIO_SUBDIR)
+        df["file_path"] = df["File Name"].apply(lambda n: os.path.join(audio_dir, n))
+
+        missing = df[~df["file_path"].apply(os.path.isfile)]
+        if not missing.empty:
+            raise FileNotFoundError(
+                f"{len(missing)} audio file(s) not found under {audio_dir}. "
+                f"First missing: {missing['file_path'].iloc[0]}"
+            )
+
+        self.metadata = df.reset_index(drop=True)
+
+        self.audio_proc = AudioMelConversions(
+            num_mels=num_mels,
+            sampling_rate=sample_rate,
+            n_fft=n_fft,
+            window_size=window_size,
+            hop_size=hop_size,
+            fmin=fmin,
+            fmax=fmax,
+            center=center,
+            min_db=min_db,
+            max_scaled_abs=max_scaled_abs,
+        )
+
+        tokenizer = Tokenizer()
+        self.transcript_lengths = [len(tokenizer.encode(t)) for t in self.metadata["Text"]]
+
+    def __len__(self):
+        return len(self.metadata)
+
+    def __getitem__(self, idx):
+        sample = self.metadata.iloc[idx]
+        audio = load_wav(sample["file_path"], sr=self.sample_rate)
+
+        silence_samples = int(0.1 * self.sample_rate)
+        silence = torch.zeros(silence_samples, dtype=audio.dtype)
+        audio = torch.cat([silence, audio, silence])
+
+        mel = self.audio_proc.audio2mel(audio, do_norm=True)
+        return sample["Text"], mel.squeeze(0)
+
+
 class WaveRNNDataset(Dataset):
     """Random mel/wave segments for WaveRNN training, aligned with :class:`TTSDataset` preprocessing.
 
