@@ -471,7 +471,8 @@ class NewOmaniTTSDataset(Dataset):
                  num_mels=80,
                  center=False,
                  min_db=-100,
-                 max_scaled_abs=4):
+                 max_scaled_abs=4,
+                 max_audio_seconds=15.0):
 
         self.dataset_root = dataset_root
         self.sample_rate = sample_rate
@@ -484,6 +485,7 @@ class NewOmaniTTSDataset(Dataset):
         self.center = center
         self.min_db = min_db
         self.max_scaled_abs = max_scaled_abs
+        self.max_audio_seconds = max_audio_seconds
 
         xlsx_path = os.path.join(dataset_root, "transcriptions.xlsx")
         if not os.path.isfile(xlsx_path):
@@ -523,6 +525,19 @@ class NewOmaniTTSDataset(Dataset):
                 f"{len(missing)} audio file(s) not found under {audio_dir}. "
                 f"First missing: {missing['file_path'].iloc[0]}"
             )
+
+        # Filter out audio files longer than max_audio_seconds using torchaudio metadata (no decode)
+        if max_audio_seconds is not None:
+            max_samples = int(max_audio_seconds * sample_rate)
+            def _audio_too_long(path):
+                try:
+                    info = torchaudio.info(path)
+                    return info.num_frames > max_samples
+                except Exception:
+                    return False
+            before = len(df)
+            df = df[~df["file_path"].apply(_audio_too_long)].reset_index(drop=True)
+            print(f"[NewOmaniTTSDataset] Filtered {before - len(df)} samples > {max_audio_seconds}s. Kept {len(df)}.")
 
         self.metadata = df.reset_index(drop=True)
 
