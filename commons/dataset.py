@@ -457,7 +457,7 @@ class NewOmaniTTSDataset(Dataset):
         center, min_db, max_scaled_abs: Audio processing parameters.
     """
 
-    AUDIO_SUBDIR = os.path.join("clean_flac", "clean_flac")
+    AUDIO_SUBDIR = "clean_flac"
 
     def __init__(self,
                  dataset_root,
