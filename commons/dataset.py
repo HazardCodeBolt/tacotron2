@@ -557,6 +557,13 @@ class NewOmaniTTSDataset(Dataset):
         tokenizer = Tokenizer()
         self.transcript_lengths = [len(tokenizer.encode(t)) for t in self.metadata["Text"]]
 
+        # Mel lengths derived from audio duration via metadata (no decode) — used by BucketBatchSampler
+        silence_samples = int(0.1 * sample_rate) * 2  # 100ms silence added at each end in __getitem__
+        self.mel_lengths = [
+            (torchaudio.info(p).num_frames + silence_samples) // hop_size + 1
+            for p in self.metadata["file_path"]
+        ]
+
     def __len__(self):
         return len(self.metadata)
 
