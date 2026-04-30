@@ -68,3 +68,7 @@ loss_curve_wavernn.png
 checkpoints_taco2/
 annotated_dataset_omani/
 dataset_new_omani/
+
+!hifigan-asc.pth
+
+!tacotron2_epoch_0096.pth
