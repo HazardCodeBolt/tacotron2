@@ -300,6 +300,57 @@ class BatchSampler:
         return len(self.random_batches)
 
 
+class BucketBatchSampler:
+    """Batch sampler that groups samples by mel length to minimize padding waste.
+
+    Sorts the dataset by mel length, splits into buckets of size
+    ``bucket_size_multiplier * batch_size``, shuffles within each bucket,
+    then shuffles the resulting batches.
+
+    Args:
+        mel_lengths:             Sequence of mel frame counts, one per sample.
+        batch_size:              Number of samples per batch.
+        drop_last:               Drop the last incomplete batch if True.
+        bucket_size_multiplier:  How many batches form one bucket (default 10).
+        shuffle_batches:         Shuffle batch order after bucketing (default True).
+    """
+
+    def __init__(self, mel_lengths, batch_size, drop_last=False,
+                 bucket_size_multiplier=10, shuffle_batches=True):
+        self.mel_lengths = list(mel_lengths)
+        self.batch_size = batch_size
+        self.drop_last = drop_last
+        self.bucket_size = batch_size * bucket_size_multiplier
+        self.shuffle_batches = shuffle_batches
+
+    def _make_batches(self):
+        indices = sorted(range(len(self.mel_lengths)), key=lambda i: self.mel_lengths[i])
+
+        batches = []
+        for bucket_start in range(0, len(indices), self.bucket_size):
+            bucket = indices[bucket_start: bucket_start + self.bucket_size]
+            random.shuffle(bucket)
+            for i in range(0, len(bucket), self.batch_size):
+                batch = bucket[i: i + self.batch_size]
+                if self.drop_last and len(batch) < self.batch_size:
+                    continue
+                batches.append(batch)
+
+        if self.shuffle_batches:
+            random.shuffle(batches)
+        return batches
+
+    def __iter__(self):
+        for batch in self._make_batches():
+            yield batch
+
+    def __len__(self):
+        n = len(self.mel_lengths)
+        if self.drop_last:
+            return n // self.batch_size
+        return (n + self.batch_size - 1) // self.batch_size
+
+
 class OmaniTTSDataset(TTSDataset):
     """Dataset loader for the annotated_dataset_omani corpus.
 
