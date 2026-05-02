@@ -1,7 +1,6 @@
 """
 Gradio TTS UI – Omani Dialect
 Mirrors the dark sci-fi aesthetic of ui/templates/index.html.
-Diacritizes input Arabic text with Mishkal before TTS synthesis.
 """
 
 import glob
@@ -40,17 +39,6 @@ from wavernn.hifigan import load_hifigan
 # ── device ────────────────────────────────────────────────────────────────────
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# ── Mishkal diacritizer ───────────────────────────────────────────────────────
-import mishkal.tashkeel as _mt
-import threading
-
-_diac_local = threading.local()
-
-def add_diacritics(text: str) -> str:
-    if not hasattr(_diac_local, "instance"):
-        _diac_local.instance = _mt.TashkeelClass()
-    return _diac_local.instance.tashkeel(text).strip()
-
 # ── helpers ───────────────────────────────────────────────────────────────────
 def _load_checkpoint(path: str):
     size = os.path.getsize(path)
@@ -86,7 +74,7 @@ def _build_wavernn(cfg: WaveRNNConfig) -> WaveRNN:
 
 # ── load Tacotron 2 ───────────────────────────────────────────────────────────
 _CKPT_CANDIDATES = [
-    os.path.join(_REPO_ROOT, "tacotron2_epoch_0096.pth"),
+    os.path.join(_REPO_ROOT, "speaker_omani_epoch_0270.pth"),
     os.path.join(_REPO_ROOT, "checkpoints_omani", "B", "speaker_B_last.pth"),
     os.path.join(_REPO_ROOT, "speaker_B_last.pth"),
     os.path.join(_REPO_ROOT, "..", "speaker_B_last.pth"),
@@ -194,10 +182,7 @@ def synthesize(text: str):
         return None, "", "⚠ No signal — enter text first"
 
     try:
-        # diacritize
-        diacritized = add_diacritics(text)
-
-        tokens = tokenizer.encode(diacritized).unsqueeze(0).to(DEVICE)
+        tokens = tokenizer.encode(text).unsqueeze(0).to(DEVICE)
         with torch.inference_mode():
             mel_post, _ = taco_model.inference(tokens, max_decode_steps=2000)
 
@@ -231,7 +216,7 @@ def synthesize(text: str):
 
         dur = len(audio_f32) / taco_config.sample_rate
         status = f"◈ Done · {_VOCODER} · {dur:.1f}s"
-        return tmp.name, diacritized, status
+        return tmp.name, text, status
 
     except Exception as exc:
         return None, "", f"⚠ Synthesis failed: {exc}"
@@ -424,7 +409,7 @@ with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
         audio_out = gr.Audio(label="▸ Synthesized Audio", interactive=False)
 
         diac_out = gr.Textbox(
-            label="▸ Diacritized Text",
+            label="▸ Input Text (as sent)",
             interactive=False,
             rtl=True,
             elem_id="diac-box",
@@ -439,7 +424,7 @@ with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
             max_lines=1,
         )
 
-    gr.HTML('<div id="tts-hint">Enter Arabic text · click Transmit · Mishkal adds diacritics automatically</div>')
+    gr.HTML('<div id="tts-hint">Enter Arabic text · click Transmit · Voice synthesis</div>')
 
     synth_btn.click(
         fn=synthesize,
@@ -449,4 +434,4 @@ with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False, css=CSS, js=JS_CORNERS)
+    demo.launch(server_name="127.0.0.1", server_port=7860, share=False, css=CSS, js=JS_CORNERS)
