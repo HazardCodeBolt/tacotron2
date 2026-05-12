@@ -5,4 +5,4 @@ torchaudio>=2.1.0
 numpy>=1.24.0
 librosa>=0.10.0
 soundfile>=0.12.0
-gradio>=4.0.0
+gradio
