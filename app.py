@@ -378,7 +378,7 @@ JS_CORNERS = """
 """
 
 # ── Gradio UI ─────────────────────────────────────────────────────────────────
-with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
+with gr.Blocks(title="TTS Engine – Omani Dialect", css=CSS, js=JS_CORNERS) as demo:
 
     gr.HTML(f"""
     <div id="tts-header">
@@ -428,4 +428,4 @@ with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(css=CSS, js=JS_CORNERS)
+    demo.launch()
