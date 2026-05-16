@@ -1,4 +1,5 @@
 # .gitignore for tacotron2-wavernn project
+checkpoints_taco2/training_viz/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
