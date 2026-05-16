@@ -300,7 +300,7 @@ _THEME = gr.themes.Base(
     block_label_text_size="13px",
     block_label_text_weight="600",
     block_label_text_color="#111827",
-    input_background_fill="#ffffff",
+    input_background_fill="#1f2937",
     input_border_color="#e5e7eb",
     input_border_width="1px",
     input_radius="8px",
@@ -322,19 +322,25 @@ CSS = """
 #tts-header {
     text-align: center;
     padding: 48px 16px 32px;
-    background: #f3f4f6;
-    border-bottom: 1px solid #e5e7eb;
+    background: #111827;
+    border-bottom: 1px solid #1f2937;
     margin-bottom: 32px;
 }
-/* remove Gradio's white wrapper around gr.HTML blocks */
-.gradio-container > .main > .wrap > .gap > div:first-child,
-div.prose { background: transparent !important; }
+/* strip white box Gradio puts around gr.HTML */
+.gradio-container .prose,
+.gradio-container .prose > div,
+.gradio-container div:has(> #tts-header) {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
 #tts-title {
     font-family: 'Inter', sans-serif;
     font-size: 28px;
     font-weight: 700;
     letter-spacing: -0.5px;
-    color: #111827;
+    color: #ffffff;
     margin: 0 0 6px 0;
     line-height: 1.2;
 }
@@ -344,13 +350,13 @@ div.prose { background: transparent !important; }
     font-weight: 500;
     letter-spacing: 0.8px;
     text-transform: uppercase;
-    color: #1a56db;
+    color: #60a5fa;
     margin: 0 0 14px 0;
 }
 #tts-desc {
     font-family: 'Inter', sans-serif;
     font-size: 14px;
-    color: #6b7280;
+    color: #9ca3af;
     margin: 0;
 }
 
@@ -363,7 +369,7 @@ textarea, input[type="text"] {
     font-family: 'Noto Sans Arabic', 'Inter', sans-serif !important;
     font-size: 15px !important;
     line-height: 1.75 !important;
-    color: #111827 !important;
+    color: #ffffff !important;
 }
 textarea:focus, input[type="text"]:focus {
     border-color: #1a56db !important;
@@ -380,14 +386,15 @@ textarea::placeholder { color: #9ca3af !important; }
 }
 
 #status-box textarea {
-    background: #d1fae5 !important;
-    border-color: #a7f3d0 !important;
-    color: #065f46 !important;
-    font-size: 13px !important;
+    background: #f9fafb !important;
+    border-color: #e5e7eb !important;
+    color: #6b7280 !important;
+    font-size: 12px !important;
+    font-family: 'Inter', sans-serif !important;
 }
 
 #diac-box textarea {
-    color: #6b7280 !important;
+    color: #374151 !important;
     direction: rtl !important;
     text-align: right !important;
 }
