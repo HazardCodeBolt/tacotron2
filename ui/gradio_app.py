@@ -72,41 +72,48 @@ def _build_wavernn(cfg: WaveRNNConfig) -> WaveRNN:
     )
 
 
-# ── load Tacotron 2 ───────────────────────────────────────────────────────────
-_CKPT_CANDIDATES = [
-    os.path.join(_REPO_ROOT, "speaker_omani_epoch_0270.pth"),
-    os.path.join(_REPO_ROOT, "checkpoints_omani", "B", "speaker_B_last.pth"),
-    os.path.join(_REPO_ROOT, "speaker_B_last.pth"),
-    os.path.join(_REPO_ROOT, "..", "speaker_B_last.pth"),
-]
-_TACOTRON_PATH = next(
-    (os.path.normpath(p) for p in _CKPT_CANDIDATES if os.path.isfile(p)), None
-)
-if _TACOTRON_PATH is None:
-    raise FileNotFoundError(
-        "Tacotron2 checkpoint not found. Tried:\n"
-        + "\n".join(f"  {os.path.normpath(p)}" for p in _CKPT_CANDIDATES)
-    )
+# ── available Tacotron 2 checkpoints ─────────────────────────────────────────
+MODELS = {
+    "Omani Speaker": os.path.normpath(os.path.join(_REPO_ROOT, "speaker_omani_epoch_0360.pth")),
+    "MSA (Fusha)":   os.path.normpath(os.path.join(_REPO_ROOT, "tacotron2_epoch_0096.pth")),
+}
+for _name, _path in MODELS.items():
+    if not os.path.isfile(_path):
+        print(f"[TTS] WARNING: checkpoint for '{_name}' not found at {_path}")
 
-saved_cfg, state_dict = _load_checkpoint(_TACOTRON_PATH)
-taco_config = saved_cfg if saved_cfg is not None else Tacotron2Config()
-taco_model = Tacotron2(taco_config).to(DEVICE)
-taco_model.load_state_dict(state_dict, strict=True)
-taco_model.eval()
-print(f"[TTS] Tacotron2 loaded from {_TACOTRON_PATH} on {DEVICE}")
+# cache: { model_name -> (taco_model, taco_config, a2m) }
+_model_cache: dict = {}
 
 tokenizer = Tokenizer()
-a2m = AudioMelConversions(
-    num_mels=taco_config.num_mels,
-    sampling_rate=taco_config.sample_rate,
-    n_fft=taco_config.n_fft,
-    window_size=taco_config.win_length,
-    hop_size=taco_config.hop_length,
-    fmin=taco_config.fmin,
-    fmax=taco_config.fmax,
-    min_db=taco_config.min_db,
-    max_scaled_abs=taco_config.max_scaled_abs,
-)
+
+
+def _get_taco_model(model_name: str):
+    if model_name in _model_cache:
+        return _model_cache[model_name]
+    path = MODELS[model_name]
+    saved_cfg, state_dict = _load_checkpoint(path)
+    cfg = saved_cfg if saved_cfg is not None else Tacotron2Config()
+    model = Tacotron2(cfg).to(DEVICE)
+    model.load_state_dict(state_dict, strict=True)
+    model.eval()
+    conv = AudioMelConversions(
+        num_mels=cfg.num_mels,
+        sampling_rate=cfg.sample_rate,
+        n_fft=cfg.n_fft,
+        window_size=cfg.win_length,
+        hop_size=cfg.hop_length,
+        fmin=cfg.fmin,
+        fmax=cfg.fmax,
+        min_db=cfg.min_db,
+        max_scaled_abs=cfg.max_scaled_abs,
+    )
+    print(f"[TTS] Tacotron2 '{model_name}' loaded from {path} on {DEVICE}")
+    _model_cache[model_name] = (model, cfg, conv)
+    return model, cfg, conv
+
+
+# pre-load default model
+_get_taco_model("Omani Speaker")
 
 # ── load HiFi-GAN (preferred) ─────────────────────────────────────────────────
 hifigan_model = None
@@ -149,13 +156,57 @@ _VOCODER = (
 print(f"[TTS] Active vocoder: {_VOCODER}")
 
 
+# ── diacritics handling ───────────────────────────────────────────────────────
+_HARAKAT = set('ًٌٍَُِّْٰ')
+
+def _strip_diacritics(text: str) -> str:
+    return ''.join(c for c in text if c not in _HARAKAT)
+
+
+try:
+    import mishkal.tashkeel as _mishkal_mod
+    _mishkal_mod.TashkeelClass()  # smoke-test import
+    def _diacritize(text: str) -> str:
+        return _mishkal_mod.TashkeelClass().tashkeel(text).strip()
+    DIACRITIZE_AVAILABLE = True
+    print("[TTS] mishkal diacritizer ready")
+except Exception as _e:
+    DIACRITIZE_AVAILABLE = False
+    def _diacritize(text: str) -> str:
+        return text
+    print(f"[TTS] mishkal not available ({_e}) — diacritization disabled")
+
+
+_PLACEHOLDERS = {
+    "Omani Speaker": "...أدخل النص ودع النموذج ينطقه ليتحول إلى واقع",
+    "MSA (Fusha)":   "...أَدْخِلِ النَّصَّ وَدَعِ النَّمُوذَجَ يَنْطِقُهُ",
+}
+
+
+def _update_placeholder(model_name: str):
+    return gr.update(placeholder=_PLACEHOLDERS.get(model_name, _PLACEHOLDERS["Omani Speaker"]))
+
+
+# ── MSA audio adjustments: lower pitch (-3 semitones) + 2x speed ─────────────
+def _msa_postprocess(audio: np.ndarray, sample_rate: int) -> np.ndarray:
+    wav = torch.from_numpy(audio).unsqueeze(0)  # (1, T)
+
+    # lower pitch by 3 semitones without changing speed
+    wav = torchaudio.functional.pitch_shift(wav, sample_rate, n_steps=-3)
+
+    # 2x speed: resample as if sample_rate were doubled, output stays at sample_rate
+    wav = torchaudio.functional.resample(wav, orig_freq=sample_rate, new_freq=sample_rate // 2)
+
+    return wav.squeeze(0).numpy().astype(np.float32)
+
+
 # ── post-processing ───────────────────────────────────────────────────────────
 def _post_process(audio: np.ndarray, sample_rate: int) -> np.ndarray:
     idx = np.where(np.abs(audio) > 5e-3)[0]
     if idx.size:
         audio = audio[idx[0]: idx[-1] + 1]
 
-    trim = min(int(30 * sample_rate / 1000), len(audio) // 4)
+    trim = min(int(200 * sample_rate / 1000), len(audio) // 4)
     if trim > 0:
         audio = audio[trim: len(audio) - trim]
     if len(audio) == 0:
@@ -176,12 +227,19 @@ def _post_process(audio: np.ndarray, sample_rate: int) -> np.ndarray:
 
 
 # ── main synthesis function ───────────────────────────────────────────────────
-def synthesize(text: str):
+def synthesize(text: str, model_name: str, do_diacritize: bool):
     text = (text or "").strip()
     if not text:
         return None, "", "⚠ No signal — enter text first"
 
     try:
+        taco_model, taco_config, a2m = _get_taco_model(model_name)
+
+        if do_diacritize:
+            text = _diacritize(text)
+        elif model_name == "Omani Speaker":
+            text = _strip_diacritics(text)
+
         tokens = tokenizer.encode(text).unsqueeze(0).to(DEVICE)
         with torch.inference_mode():
             mel_post, _ = taco_model.inference(tokens, max_decode_steps=2000)
@@ -211,11 +269,14 @@ def synthesize(text: str):
 
         audio_f32 = _post_process(audio_f32, taco_config.sample_rate)
 
+        if model_name == "MSA (Fusha)":
+            audio_f32 = _msa_postprocess(audio_f32, taco_config.sample_rate)
+
         tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
         sf.write(tmp.name, audio_f32, taco_config.sample_rate)
 
         dur = len(audio_f32) / taco_config.sample_rate
-        status = f"◈ Done · {_VOCODER} · {dur:.1f}s"
+        status = f"◈ Done · {model_name} · {_VOCODER} · {dur:.1f}s"
         return tmp.name, text, status
 
     except Exception as exc:
@@ -338,6 +399,19 @@ textarea::placeholder { color:rgba(200,230,255,0.22) !important; }
     border-radius:12px !important;
 }
 
+.gradio-radio label span {
+    font-family:'Space Mono',monospace !important; font-size:12px !important;
+    letter-spacing:1px !important; color:#c8f0ff !important;
+    text-transform:none !important;
+}
+.gradio-radio input[type="radio"]:checked + span {
+    color:var(--cyan) !important;
+}
+.gradio-radio {
+    background:rgba(0,8,24,0.5) !important; border:1px solid var(--border) !important;
+    border-radius:12px !important; padding:10px 14px !important;
+}
+
 #status-box textarea {
     background:rgba(0,5,20,0.5) !important; border:1px solid rgba(0,245,255,0.07) !important;
     border-radius:8px !important; color:rgba(0,255,157,0.85) !important;
@@ -396,6 +470,20 @@ with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
 
     with gr.Column(elem_id="tts-panel"):
 
+        model_selector = gr.Radio(
+            choices=list(MODELS.keys()),
+            value="Omani Speaker",
+            label="▸ Model",
+            interactive=True,
+        )
+
+        diacritize_chk = gr.Checkbox(
+            value=False,
+            label="▸ Auto-Diacritize (تشكيل تلقائي)",
+            interactive=DIACRITIZE_AVAILABLE,
+            info="Automatically add harakat before synthesis" if DIACRITIZE_AVAILABLE else "mishkal not available",
+        )
+
         text_in = gr.Textbox(
             lines=4,
             max_lines=8,
@@ -426,9 +514,15 @@ with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
 
     gr.HTML('<div id="tts-hint">Enter Arabic text · click Transmit · Voice synthesis</div>')
 
+    model_selector.change(
+        fn=_update_placeholder,
+        inputs=[model_selector],
+        outputs=[text_in],
+    )
+
     synth_btn.click(
         fn=synthesize,
-        inputs=[text_in],
+        inputs=[text_in, model_selector, diacritize_chk],
         outputs=[audio_out, diac_out, status_out],
     )
 
