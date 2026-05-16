@@ -1,0 +1,17 @@
+moviepy
+pydub
+numpy
+librosa
+soundfile
+noisereduce
+openai-whisper
+pandas
+openpyxl
+demucs
+streamlit
+num2words
+# Pin to 2.8.x to avoid torchaudio 2.9+ TorchCodec (fails on Windows without FFmpeg DLLs).
+# If you see "Could not load libtorchcodec", run: pip uninstall torchcodec -y
+torch>=2.8,<2.9
+torchaudio>=2.8,<2.9
+speechbrain
