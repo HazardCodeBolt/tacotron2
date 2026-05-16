@@ -283,188 +283,134 @@ def synthesize(text: str, model_name: str, do_diacritize: bool):
         return None, "", f"⚠ Synthesis failed: {exc}"
 
 
-# ── CSS ───────────────────────────────────────────────────────────────────────
+# ── theme + CSS ───────────────────────────────────────────────────────────────
+_THEME = gr.themes.Base(
+    primary_hue=gr.themes.colors.blue,
+    neutral_hue=gr.themes.colors.gray,
+    font=[gr.themes.GoogleFont("Inter"), "system-ui", "sans-serif"],
+).set(
+    body_background_fill="#f3f4f6",
+    body_text_color="#111827",
+    background_fill_primary="#ffffff",
+    background_fill_secondary="#f9fafb",
+    border_color_primary="#e5e7eb",
+    block_border_width="1px",
+    block_radius="8px",
+    block_shadow="0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04)",
+    block_label_text_size="13px",
+    block_label_text_weight="600",
+    block_label_text_color="#111827",
+    input_background_fill="#ffffff",
+    input_border_color="#e5e7eb",
+    input_border_width="1px",
+    input_radius="8px",
+    input_text_size="15px",
+    button_primary_background_fill="#1a56db",
+    button_primary_background_fill_hover="#1648c0",
+    button_primary_text_color="#ffffff",
+    button_primary_border_color="transparent",
+    button_large_radius="8px",
+    button_large_text_size="14px",
+    button_large_text_weight="600",
+    checkbox_background_color="#ffffff",
+    checkbox_border_color="#e5e7eb",
+)
+
 CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600&display=swap');
 
-:root {
-    --cyan:   #00f5ff;
-    --violet: #c200fb;
-    --gold:   #ffd166;
-    --dark:   #040811;
-    --glass:  rgba(4,16,36,0.82);
-    --border: rgba(0,245,255,0.18);
+#tts-header {
+    text-align: center;
+    padding: 48px 16px 32px;
+    background: #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 32px;
 }
-
-body, .gradio-container, footer { background: var(--dark) !important; }
-
-.gradio-container {
-    font-family: 'Space Mono', monospace !important;
-    color: #c8f0ff !important;
-    min-height: 100vh;
-    position: relative;
-}
-
-.gradio-container::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background:
-        radial-gradient(circle at 30% 30%, rgba(0,245,255,0.09), transparent 40%),
-        radial-gradient(circle at 70% 60%, rgba(194,0,251,0.10), transparent 45%),
-        radial-gradient(circle at 50% 80%, rgba(0,255,100,0.05), transparent 40%);
-    filter: blur(22px);
-    animation: nebula 14s ease-in-out infinite alternate;
-    z-index: 0;
-    pointer-events: none;
-}
-@keyframes nebula {
-    0%   { transform: scale(1)    translate(0,0); }
-    100% { transform: scale(1.18) translate(-18px,-12px); }
-}
-
-#tts-header { text-align:center; padding:32px 0 8px; position:relative; z-index:1; }
-#tts-badge {
-    display:inline-block; font-family:'Orbitron',monospace; font-size:10px;
-    letter-spacing:4px; color:var(--cyan); border:1px solid var(--border);
-    padding:4px 14px; border-radius:20px; margin-bottom:12px;
-    background:rgba(0,245,255,0.05); text-transform:uppercase;
-}
+/* remove Gradio's white wrapper around gr.HTML blocks */
+.gradio-container > .main > .wrap > .gap > div:first-child,
+div.prose { background: transparent !important; }
 #tts-title {
-    font-family:'Orbitron',monospace !important;
-    font-size:clamp(22px,3.5vw,44px) !important; font-weight:900 !important;
-    letter-spacing:5px !important; text-transform:uppercase !important;
-    line-height:1 !important;
-    background:linear-gradient(90deg,var(--cyan) 0%,#ffffff 40%,var(--violet) 80%,var(--gold) 100%);
-    -webkit-background-clip:text !important; -webkit-text-fill-color:transparent !important;
-    background-clip:text !important;
-    filter:drop-shadow(0 0 24px rgba(0,245,255,0.4)) !important;
-    margin:0 !important; padding:0 !important;
+    font-family: 'Inter', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #111827;
+    margin: 0 0 6px 0;
+    line-height: 1.2;
 }
-#tts-sub {
-    font-size:11px; letter-spacing:3px; color:rgba(200,240,255,0.45);
-    text-transform:uppercase; margin-top:8px;
+#tts-subtitle {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #1a56db;
+    margin: 0 0 14px 0;
+}
+#tts-desc {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
 }
 
 #tts-panel {
-    max-width:680px; margin:20px auto 40px;
-    background:var(--glass) !important; border:1px solid var(--border) !important;
-    border-radius:24px !important; padding:32px 34px 28px !important;
-    backdrop-filter:blur(28px) saturate(1.4);
-    box-shadow:0 0 0 1px rgba(0,245,255,0.06),0 20px 80px rgba(0,0,0,0.6),
-               inset 0 1px 0 rgba(255,255,255,0.06) !important;
-    position:relative; z-index:1;
-}
-#tts-panel::before {
-    content:""; position:absolute; top:-1px; left:20%; right:20%; height:1px;
-    background:linear-gradient(90deg,transparent,var(--cyan),transparent); opacity:.7;
+    max-width: 720px !important;
+    margin: 0 auto 48px !important;
 }
 
-label span, .label-wrap span {
-    font-family:'Orbitron',monospace !important; font-size:9px !important;
-    letter-spacing:2.5px !important; color:rgba(0,245,255,0.6) !important;
-    text-transform:uppercase !important;
+textarea, input[type="text"] {
+    font-family: 'Noto Sans Arabic', 'Inter', sans-serif !important;
+    font-size: 15px !important;
+    line-height: 1.75 !important;
+    color: #111827 !important;
 }
-
-textarea {
-    background:rgba(0,8,24,0.7) !important; border:1px solid var(--border) !important;
-    border-radius:14px !important; color:#d4f0ff !important;
-    font-family:'Space Mono',monospace !important; font-size:13px !important;
-    line-height:1.7 !important; caret-color:var(--cyan) !important;
+textarea:focus, input[type="text"]:focus {
+    border-color: #1a56db !important;
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.12) !important;
 }
-textarea:focus {
-    border-color:rgba(0,245,255,0.45) !important;
-    box-shadow:0 0 0 3px rgba(0,245,255,0.07),0 0 18px rgba(0,245,255,0.55) !important;
-    outline:none !important;
-}
-textarea::placeholder { color:rgba(200,230,255,0.22) !important; }
+textarea::placeholder { color: #9ca3af !important; }
 
 #btn-synthesize {
-    background:linear-gradient(135deg,rgba(0,245,255,0.15) 0%,rgba(194,0,251,0.15) 100%) !important;
-    border:1px solid rgba(0,245,255,0.35) !important; color:#fff !important;
-    font-family:'Orbitron',monospace !important; font-size:13px !important;
-    font-weight:700 !important; letter-spacing:3px !important;
-    text-transform:uppercase !important; border-radius:14px !important;
-    height:52px !important; width:100% !important;
-    transition:transform .15s,box-shadow .2s,border-color .2s !important;
-}
-#btn-synthesize:hover {
-    border-color:var(--cyan) !important;
-    box-shadow:0 0 30px rgba(0,245,255,0.35),0 0 60px rgba(194,0,251,0.2) !important;
-    transform:translateY(-1px) !important;
-}
-
-.gradio-audio, audio {
-    background:rgba(0,5,18,0.75) !important; border:1px solid rgba(0,245,255,0.1) !important;
-    border-radius:12px !important;
-}
-
-.gradio-radio label span {
-    font-family:'Space Mono',monospace !important; font-size:12px !important;
-    letter-spacing:1px !important; color:#c8f0ff !important;
-    text-transform:none !important;
-}
-.gradio-radio input[type="radio"]:checked + span {
-    color:var(--cyan) !important;
-}
-.gradio-radio {
-    background:rgba(0,8,24,0.5) !important; border:1px solid var(--border) !important;
-    border-radius:12px !important; padding:10px 14px !important;
+    height: 44px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.2px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08) !important;
 }
 
 #status-box textarea {
-    background:rgba(0,5,20,0.5) !important; border:1px solid rgba(0,245,255,0.07) !important;
-    border-radius:8px !important; color:rgba(0,255,157,0.85) !important;
-    font-family:'Orbitron',monospace !important; font-size:10px !important;
-    letter-spacing:1.5px !important; text-transform:uppercase !important;
+    background: #d1fae5 !important;
+    border-color: #a7f3d0 !important;
+    color: #065f46 !important;
+    font-size: 13px !important;
 }
 
 #diac-box textarea {
-    background:rgba(0,8,24,0.5) !important; border:1px solid rgba(0,245,255,0.08) !important;
-    border-radius:10px !important; color:rgba(200,240,255,0.6) !important;
-    font-family:'Space Mono',monospace !important; font-size:12px !important;
-    direction:rtl; text-align:right;
+    color: #6b7280 !important;
+    direction: rtl !important;
+    text-align: right !important;
 }
 
-#tts-hint {
-    text-align:center; color:rgba(0,245,255,0.45); font-family:'Space Mono',monospace;
-    font-size:10px; letter-spacing:2px; text-transform:uppercase;
-    padding-bottom:20px; position:relative; z-index:1;
+#tts-footer {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 12px;
+    padding-bottom: 32px;
+    font-family: 'Inter', sans-serif;
 }
 
-footer { display:none !important; }
-"""
-
-JS_CORNERS = """
-() => {
-    const corners = [
-        { cls:'c-tl', style:'top:16px;left:16px;', stroke:'#00f5ff' },
-        { cls:'c-tr', style:'top:16px;right:16px;transform:scaleX(-1);', stroke:'#c200fb' },
-        { cls:'c-bl', style:'bottom:36px;left:16px;transform:scaleY(-1);', stroke:'#00f5ff' },
-        { cls:'c-br', style:'bottom:36px;right:16px;transform:scale(-1,-1);', stroke:'#c200fb' },
-    ];
-    corners.forEach(c => {
-        if (document.querySelector('.'+c.cls)) return;
-        const d = document.createElement('div');
-        d.className = 'corner ' + c.cls;
-        d.style.cssText = 'position:fixed;width:60px;height:60px;z-index:5;opacity:.5;pointer-events:none;' + c.style;
-        d.innerHTML = `<svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
-            <path d="M2 58 L2 2 L58 2" stroke="${c.stroke}" stroke-width="1.5" stroke-linecap="round"/>
-            <circle cx="2" cy="2" r="2.5" fill="${c.stroke}"/>
-        </svg>`;
-        document.body.appendChild(d);
-    });
-}
+footer { display: none !important; }
 """
 
 # ── Gradio UI ─────────────────────────────────────────────────────────────────
-with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
+with gr.Blocks(title="Arabic TTS — Omani Dialect", theme=_THEME, css=CSS) as demo:
 
     gr.HTML(f"""
     <div id="tts-header">
-        <div id="tts-badge">◈ String-Field Engine v0.1</div>
-        <div id="tts-title">TTS Engine – Omani Dialect</div>
-        <div id="tts-sub">Text-to-Speech · Neural Voice Synthesis · {_VOCODER}</div>
+        <p id="tts-subtitle">Neural Text-to-Speech</p>
+        <h1 id="tts-title">Arabic TTS Engine</h1>
+        <p id="tts-desc">Omani Dialect &amp; Modern Standard Arabic &nbsp;·&nbsp; {_VOCODER}</p>
     </div>
     """)
 
@@ -473,31 +419,31 @@ with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
         model_selector = gr.Radio(
             choices=list(MODELS.keys()),
             value="Omani Speaker",
-            label="▸ Model",
+            label="Voice Model",
             interactive=True,
         )
 
         diacritize_chk = gr.Checkbox(
             value=False,
-            label="▸ Auto-Diacritize (تشكيل تلقائي)",
+            label="Auto-Diacritize (تشكيل تلقائي)",
             interactive=DIACRITIZE_AVAILABLE,
-            info="Automatically add harakat before synthesis" if DIACRITIZE_AVAILABLE else "mishkal not available",
+            info="Automatically add harakat before synthesis" if DIACRITIZE_AVAILABLE else "mishkal library not available",
         )
 
         text_in = gr.Textbox(
             lines=4,
             max_lines=8,
             placeholder="...أدخل النص ودع النموذج ينطقه ليتحول إلى واقع",
-            label="▸ Input Text",
+            label="Input Text",
             rtl=True,
         )
 
-        synth_btn = gr.Button("▶  TRANSMIT VOICE", elem_id="btn-synthesize", variant="primary")
+        synth_btn = gr.Button("Synthesize Speech", elem_id="btn-synthesize", variant="primary")
 
-        audio_out = gr.Audio(label="▸ Synthesized Audio", interactive=False)
+        audio_out = gr.Audio(label="Synthesized Audio", interactive=False)
 
         diac_out = gr.Textbox(
-            label="▸ Input Text (as sent)",
+            label="Text as Sent to Model",
             interactive=False,
             rtl=True,
             elem_id="diac-box",
@@ -505,14 +451,14 @@ with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
         )
 
         status_out = gr.Textbox(
-            value="System ready — awaiting input",
-            label="▸ Status",
+            value="Ready",
+            label="Status",
             interactive=False,
             elem_id="status-box",
             max_lines=1,
         )
 
-    gr.HTML('<div id="tts-hint">Enter Arabic text · click Transmit · Voice synthesis</div>')
+    gr.HTML('<div id="tts-footer">Tacotron 2 + HiFi-GAN &nbsp;·&nbsp; Omani Arabic Speech Synthesis</div>')
 
     model_selector.change(
         fn=_update_placeholder,
@@ -528,4 +474,4 @@ with gr.Blocks(title="TTS Engine – Omani Dialect") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="127.0.0.1", server_port=7860, share=False, css=CSS, js=JS_CORNERS)
+    demo.launch(server_name="127.0.0.1", server_port=7860, share=False)
