@@ -50,8 +50,6 @@ wavernn/training_monitor/
 
 # Ignore large data files
 *.h5
-*.pth
-*.pt
 *.ckpt
 
 clartts/
@@ -68,3 +66,6 @@ loss_curve_wavernn.png
 checkpoints_taco2/
 annotated_dataset_omani/
 dataset_new_omani/
+
+
+evaluation/

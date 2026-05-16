@@ -7,6 +7,16 @@ import torch
 import torch.nn.functional as F
 import torchaudio
 import torchaudio.functional as AF
+import soundfile as _sf
+
+def _audio_num_frames(path: str) -> int:
+    """Return number of audio frames without decoding the full file."""
+    try:
+        return torchaudio.info(path).num_frames
+    except AttributeError:
+        # torchaudio < 0.9 lacks torchaudio.info; fall back to soundfile
+        info = _sf.info(path)
+        return info.frames
 from torch.utils.data import Dataset
 import librosa
 from tacotron2.tokenizer import Tokenizer
@@ -582,8 +592,7 @@ class NewOmaniTTSDataset(Dataset):
             max_samples = int(max_audio_seconds * sample_rate)
             def _audio_too_long(path):
                 try:
-                    info = torchaudio.info(path)
-                    return info.num_frames > max_samples
+                    return _audio_num_frames(path) > max_samples
                 except Exception:
                     return False
             before = len(df)
@@ -611,7 +620,7 @@ class NewOmaniTTSDataset(Dataset):
         # Mel lengths derived from audio duration via metadata (no decode) — used by BucketBatchSampler
         silence_samples = int(0.1 * sample_rate) * 2  # 100ms silence added at each end in __getitem__
         self.mel_lengths = [
-            (torchaudio.info(p).num_frames + silence_samples) // hop_size + 1
+            (_audio_num_frames(p) + silence_samples) // hop_size + 1
             for p in self.metadata["file_path"]
         ]
 
